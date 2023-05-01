@@ -13,6 +13,8 @@
 #include <arpa/inet.h> // inet_addr
 #include <unistd.h>    //socklen_t
 
+#include <pthread.h>
+
 #include <errno.h>
 
 #define MAX_LINE 1024
@@ -20,6 +22,13 @@
 #define SERV_PORT 7070
 // 处于 完全连接状态的socket 的上限
 #define BACKLOG 10
+
+typedef struct
+{
+    int listenfd;
+    int connected_fd;
+    struct sockaddr_in c_addr;
+} conn_handler_param;
 
 void print_addr_info(int listenfd)
 {
@@ -34,13 +43,59 @@ void print_addr_info(int listenfd)
            inet_ntoa(listenfd_remote_addr.sin_addr), ntohs(listenfd_remote_addr.sin_port));
 }
 
+void *connection_handler(void *args)
+{
+    conn_handler_param *param = (conn_handler_param *)args;
+    struct sockaddr_in c_addr = param->c_addr;
+    int connected_fd = param->connected_fd;
+    int listenfd = param->listenfd;
+    char buf[MAX_LINE];
+    // [这里的client ip输出是0.0.0.0表示，被同意连接的客户端可以是本机上的任意一个进程(port)]
+    printf("client_addr:%s\n", inet_ntoa(c_addr.sin_addr));
+    // 用于和当前客户端通信的文件，是该进程打开的第几个文件
+    printf("connectedfd:%d\n", connected_fd);
+    // 读取listenfd的本地地址和远端地址(这一块与socket通信无关，只是为了测试各个套接字的本地地址和远端地址)
+    printf("for listenfd:\n");
+    print_addr_info(listenfd);
+    // 读取connectedfd的本地地址和远端地址
+    printf("for connectedfd:\n");
+    print_addr_info(connected_fd);
+
+    memset(buf, 0, sizeof(buf)); // 初始化 接受缓冲区
+    while (1)
+    {
+        // n_read <= rec_buf.size()
+        // 如果发送的数据大于这个rec_buf，则recv函数多次进入接受缓冲区分批放入该数组
+        // 返回读到的数据长度（可能小于期望长度，因为可能Buf太小，一次读不完）
+        int n_read = recv(connected_fd, buf, sizeof(buf), 0);
+        if (n_read < MAX_LINE)
+        {
+            buf[n_read] = '\0';
+        }
+        if (n_read > 1)
+        {
+            // 从连接套接字指向的文件中 读出客户端发过来的消息
+            printf("len:%d   client's msg:%s\n", n_read, buf);
+            send(connected_fd, buf, n_read, 0);
+        }
+        else
+        {
+            printf("%d\n", n_read);
+            printf("client disconnect\n");
+            close(connected_fd);
+            break; // ctrl+c 断开客户端
+        }
+    }
+}
+
 int main(int argc, char **argv)
 {
     int listenfd;                    // server's listening socket
     struct sockaddr_in s_addr = {0}; // server's socket address
     struct sockaddr_in c_addr = {0}; // client's socket address
     socklen_t c_addrlen = 0;         // client's sockaddr's length
-    char buf[MAX_LINE];
+
+    pthread_t thread;
 
     listenfd = socket(AF_INET, SOCK_STREAM, 0);
     if (listenfd == -1)
@@ -75,43 +130,13 @@ int main(int argc, char **argv)
         int connected_fd = accept(listenfd, (struct sockaddr *)&c_addr, &c_addrlen);
         if (connected_fd)
         {
-            // [这里的client ip输出是0.0.0.0表示，被同意连接的客户端可以是本机上的任意一个进程(port)]
-            printf("client_addr:%s\n", inet_ntoa(c_addr.sin_addr));
-            // 用于和当前客户端通信的文件，是该进程打开的第几个文件
-            printf("connectedfd:%d\n", connected_fd);
-            // 读取listenfd的本地地址和远端地址(这一块与socket通信无关，只是为了测试各个套接字的本地地址和远端地址)
-            printf("for listenfd:\n");
-            print_addr_info(listenfd);
-            // 读取connectedfd的本地地址和远端地址
-            printf("for connectedfd:\n");
-            print_addr_info(connected_fd);
-
-            memset(buf, 0, sizeof(buf)); // 初始化 接受缓冲区
-            while (1)
-            {
-                // n_read <= rec_buf.size()
-                // 如果发送的数据大于这个rec_buf，则recv函数多次进入接受缓冲区分批放入该数组
-                // 返回读到的数据长度（可能小于期望长度，因为可能Buf太小，一次读不完）
-                int n_read = recv(connected_fd, buf, sizeof(buf), 0);
-                if (n_read < MAX_LINE)
-                {
-                    buf[n_read] = '\0';
-                }
-                if (n_read > 1)
-                {
-                    printf("len:%d   client's msg:%s\n", n_read, buf); // 从连接套接字指向的文件中 读出客户端发过来的消息
-                    // send(connected_fd, buf, sizeof(buf), 0);
-                    send(connected_fd, buf, n_read, 0);
-                }
-                else
-                {
-                    printf("%d\n", n_read);
-                    printf("client disconnect\n");
-                    break; // ctrl+c 断开客户端
-                }
-            }
+            conn_handler_param args = {
+                connected_fd : connected_fd,
+                listenfd : listenfd,
+                c_addr : c_addr
+            };
+            pthread_create(&thread, NULL, connection_handler, (void *)&args);
         }
-        close(connected_fd);
     }
     return 0;
 }
