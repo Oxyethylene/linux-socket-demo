@@ -38,7 +38,7 @@ void print_addr_info(int listenfd)
     struct sockaddr_in listenfd_remote_addr;
     socklen_t listenfd_remote_addr_len = sizeof(struct sockaddr_in);
     int r2 = getpeername(listenfd, (struct sockaddr *)&listenfd_remote_addr, &listenfd_remote_addr_len);
-    printf("address is:%s:%d    remote address is %s:%d\n",
+    printf("fd is: %d\naddress is:%s:%d    remote address is %s:%d\n", listenfd,
            inet_ntoa(listenfd_local_addr.sin_addr), ntohs(listenfd_local_addr.sin_port),
            inet_ntoa(listenfd_remote_addr.sin_addr), ntohs(listenfd_remote_addr.sin_port));
 }
@@ -50,15 +50,8 @@ void *handle_connection(void *args)
     int connected_fd = param->connected_fd;
     int listenfd = param->listenfd;
     char buf[MAX_LINE];
-    // [这里的client ip输出是0.0.0.0表示，被同意连接的客户端可以是本机上的任意一个进程(port)]
-    printf("client_addr:%s\n", inet_ntoa(c_addr.sin_addr));
-    // 用于和当前客户端通信的文件，是该进程打开的第几个文件
-    printf("connectedfd:%d\n", connected_fd);
-    // 读取listenfd的本地地址和远端地址(这一块与socket通信无关，只是为了测试各个套接字的本地地址和远端地址)
-    printf("for listenfd:\n");
-    print_addr_info(listenfd);
-    // 读取connectedfd的本地地址和远端地址
-    printf("for connectedfd:\n");
+
+    printf("new client:\n");
     print_addr_info(connected_fd);
 
     memset(buf, 0, sizeof(buf)); // 初始化 接受缓冲区
@@ -80,8 +73,8 @@ void *handle_connection(void *args)
         }
         else
         {
-            printf("%d\n", n_read);
             printf("client disconnect\n");
+            print_addr_info(connected_fd);
             close(connected_fd);
             break; // ctrl+c 断开客户端
         }
