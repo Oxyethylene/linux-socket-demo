@@ -98,15 +98,12 @@ int main(int argc, char **argv)
     pthread_t thread;
 
     listenfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (listenfd == -1)
+    if (listenfd < 0)
     {
-        printf("error creating socket\n");
-        exit(1);
+        perror("socket error");
+        return -1;
     }
-    else
-    {
-        printf("listenfd = %d\n", listenfd);
-    }
+    printf("listenfd = %d\n", listenfd);
 
     // 地址族（要和socket定义时一样）
     s_addr.sin_family = AF_INET;
@@ -115,14 +112,17 @@ int main(int argc, char **argv)
     // 将 无符号短整形的主机字节序  转化为  短整形的网络字节序
     s_addr.sin_port = htons(SERV_PORT);
 
-    int ret = bind(listenfd, (struct sockaddr *)&s_addr, sizeof(struct sockaddr));
-    if (ret == -1)
+    if (bind(listenfd, (struct sockaddr *)&s_addr, sizeof(struct sockaddr)) == -1)
     {
-        perror("bind failed");
-        exit(1);
+        perror("bind error");
+        exit(-1);
     }
 
-    listen(listenfd, BACKLOG);
+    if (listen(listenfd, BACKLOG) < 0)
+    {
+        perror("listen error");
+        return -1;
+    }
     printf("server open at %s:%d, with max client(backlog) %d\n", SERV_ADDR, SERV_PORT, BACKLOG);
 
     while (1)
