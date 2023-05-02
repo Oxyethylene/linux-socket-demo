@@ -43,7 +43,7 @@ void print_addr_info(int listenfd)
            inet_ntoa(listenfd_remote_addr.sin_addr), ntohs(listenfd_remote_addr.sin_port));
 }
 
-void *connection_handler(void *args)
+void *handle_connection(void *args)
 {
     conn_handler_param *param = (conn_handler_param *)args;
     struct sockaddr_in c_addr = param->c_addr;
@@ -115,7 +115,7 @@ int main(int argc, char **argv)
     if (bind(listenfd, (struct sockaddr *)&s_addr, sizeof(struct sockaddr)) == -1)
     {
         perror("bind error");
-        exit(-1);
+        return -1;
     }
 
     if (listen(listenfd, BACKLOG) < 0)
@@ -135,7 +135,7 @@ int main(int argc, char **argv)
                 listenfd : listenfd,
                 c_addr : c_addr
             };
-            pthread_create(&thread, NULL, connection_handler, (void *)&args);
+            pthread_create(&thread, NULL, handle_connection, (void *)&args);
         }
     }
     return 0;
