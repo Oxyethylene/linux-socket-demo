@@ -164,7 +164,7 @@ int main(int argc, char **argv)
          */
         if (FD_ISSET(listenfd, &read_set))
         {
-            int connected_fd = accept(listenfd, (struct sockaddr *)&c_addr, &c_addrlen);
+            int connected_fd = accept4(listenfd, (struct sockaddr *)&c_addr, &c_addrlen, SOCK_NONBLOCK);
             if (connected_fd < 0)
             {
                 perror("accept error");

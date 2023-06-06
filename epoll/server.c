@@ -95,7 +95,7 @@ int main(int argc, char *argv[])
             // 如果是新的连接,需要把新的socket添加到efd中
             if (ep[i].data.fd == listenfd)
             {
-                connfd = accept(listenfd, (struct sockaddr *)&c_addr, &c_addrlen);
+                connfd = accept4(listenfd, (struct sockaddr *)&c_addr, &c_addrlen, SOCK_NONBLOCK);
                 ev.events = EPOLLIN;
                 ev.data.fd = connfd;
                 ret = epoll_ctl(epollfd, EPOLL_CTL_ADD, connfd, &ev);

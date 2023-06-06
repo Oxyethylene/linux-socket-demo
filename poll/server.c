@@ -147,7 +147,7 @@ int main(int argc, char **argv)
 
         if ((fds[0].revents & POLLIN) == POLLIN)
         {
-            int connected_fd = accept(fds[0].fd, (struct sockaddr *)&c_addr, &c_addrlen);
+            int connected_fd = accept4(fds[0].fd, (struct sockaddr *)&c_addr, &c_addrlen, SOCK_NONBLOCK);
             if (connected_fd < 0)
             {
                 perror("accept error");
